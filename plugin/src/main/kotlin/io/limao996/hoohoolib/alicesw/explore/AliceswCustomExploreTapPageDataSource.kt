@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlin.collections.emptyList
 
-class CustomExploreTapPageDataSource(
+class AliceswCustomExploreTapPageDataSource(
     override val title: String, val fromIndex: Int, val toIndex: Int
 ) : ExploreTapPageDataSource {
 

@@ -32,9 +32,7 @@ import kotlinx.coroutines.withContext
 const val SESECLUB2_HOST = "https://novel.seseclub.com"
 
 @Suppress("unused")
-@WebDataSource(
-    name = "涩涩俱乐部-九梦🔞", provider = "HoohooLib from novel.seseclub.com"
-)
+//@WebDataSource(name = "涩涩俱乐部-九梦🔞", provider = "HoohooLib from novel.seseclub.com")
 class Seseclub2WebDataSource(
     val context: Context,
     val userDataDaoApi: UserDataDaoApi,
@@ -100,6 +98,6 @@ class Seseclub2WebDataSource(
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
         ifCache(chapterId + bookId) {
-            Seseclub2ChapterContent(chapterId)
+            Seseclub2ChapterContent(chapterId, bookId, localBookDataSourceApi)
         }
 }

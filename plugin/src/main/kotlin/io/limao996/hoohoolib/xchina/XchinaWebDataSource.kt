@@ -32,9 +32,7 @@ import kotlinx.coroutines.withContext
 const val XCHINA_HOST = "https://xchina001.site"
 
 @Suppress("unused")
-@WebDataSource(
-    name = "小黄书🔞", provider = "HoohooLib from xchina.co"
-)
+//@WebDataSource(name = "小黄书🔞", provider = "HoohooLib from xchina001.site")
 class XchinaWebDataSource(
     val context: Context,
     val userDataDaoApi: UserDataDaoApi,
@@ -100,6 +98,6 @@ class XchinaWebDataSource(
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
         ifCache(chapterId + bookId) {
-            XchinaChapterContent(chapterId)
+            XchinaChapterContent(chapterId, bookId, localBookDataSourceApi)
         }
 }

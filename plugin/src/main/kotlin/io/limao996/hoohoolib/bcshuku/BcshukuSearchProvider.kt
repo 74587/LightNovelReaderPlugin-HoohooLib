@@ -22,6 +22,10 @@ import org.jsoup.Jsoup
 import java.net.URLEncoder
 import java.time.LocalDateTime
 import kotlin.time.Duration.Companion.seconds
+import androidx.core.net.toUri
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.time.format.DateTimeFormatter
 
 object BcshukuSearchProvider : SearchProvider {
     override val searchTypes: List<SearchType> = listOf(
@@ -36,31 +40,23 @@ object BcshukuSearchProvider : SearchProvider {
 
         // Step 1: Get searchid from initial search request
         val initResponse = withContext(Dispatchers.IO) {
-            CxHttp.get("$BCSHUKU_HOST/e/search/index.php?keyboard=$q&show=title,writer,byr&searchget=1") {
-                header("user-agent", ua)
-                header("referer", BCSHUKU_HOST)
-            }.await()
+            val client = OkHttpClient.Builder().build()
+            val request = Request.Builder()
+                .url("$BCSHUKU_HOST/e/search/index.php?keyboard=$q&show=title,writer,byr&searchget=1")
+                .header("user-agent", ua).header("referer", BCSHUKU_HOST).get().build()
+            client.newCall(request).execute()
         }
 
-        val location = ""
-        val searchidMatch = Regex("searchid=(\\d+)").find(location)
-        val searchid = searchidMatch?.groupValues?.get(1)
+        val location = initResponse.header("location") ?: initResponse.body.string()
+        val match = Regex("searchid=(\\d+)").find(location)
+        val searchid = match?.groupValues?.get(1)
 
         if (searchid == null) {
-            // Try to extract from body if redirect wasn't followed
-            val body = initResponse.body?.string() ?: ""
-            val fallbackMatch = Regex("searchid=(\\d+)").find(body)
-            val fallbackSearchid = fallbackMatch?.groupValues?.get(1)
-
-            if (fallbackSearchid == null) {
-                emit(SearchResult.Error("获取搜索ID失败！"))
-                return@flow
-            }
-
-            searchAndParse(fallbackSearchid, keyword, ua)
-        } else {
-            searchAndParse(searchid, keyword, ua)
+            emit(SearchResult.Error("获取搜索ID失败！"))
+            return@flow
         }
+
+        searchAndParse(searchid, keyword, ua)
     }.flowOn(Dispatchers.IO)
 
     private suspend fun kotlinx.coroutines.flow.FlowCollector<SearchResult>.searchAndParse(
@@ -68,14 +64,8 @@ object BcshukuSearchProvider : SearchProvider {
     ) {
         var currentPage = 0
         while (currentCoroutineContext().isActive) {
-            val url = if (currentPage == 0) {
-                "$BCSHUKU_HOST/e/search/result/?searchid=$searchid"
-            } else {
-                "$BCSHUKU_HOST/e/search/result/index.php?page=$currentPage&searchid=$searchid"
-            }
-
             val response = withContext(Dispatchers.IO) {
-                CxHttp.get(url) {
+                CxHttp.get("$BCSHUKU_HOST/e/search/result/index.php?page=$currentPage&searchid=$searchid") {
                     header("user-agent", ua)
                     header("referer", BCSHUKU_HOST)
                 }.await().body?.string()
@@ -98,11 +88,18 @@ object BcshukuSearchProvider : SearchProvider {
             for (item in items) {
                 val link = item.selectFirst(".each_truyen a")
                 val bookUrl = link?.attr("href") ?: continue
-                val title = item.selectFirst(".caption a")?.attr("title") ?: link?.attr("title")
-                ?: "暂无标题"
+                val title =
+                    item.selectFirst(".caption a h3")?.text() ?: link.attr("title")
                 val coverUrl = item.selectFirst(".each_truyen a img")?.attr("src")?.let {
-                    if (it.startsWith("http")) Uri.parse(it) else Uri.parse("$BCSHUKU_HOST$it")
+                    if (it.startsWith("http")) it.toUri() else "$BCSHUKU_HOST$it".toUri()
                 } ?: Uri.EMPTY
+
+                val lastUpdated = item.selectFirst(".caption .chuyen-muc")?.text()?.let {
+                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                    LocalDateTime.parse("$it 00:00", formatter)
+                } ?: LocalDateTime.MIN
+
+                val isComplete = item.selectFirst(".caption .hoan-thanh-mau")?.text() != "连载"
 
                 emit(
                     SearchResult.MultipleBook(
@@ -116,8 +113,8 @@ object BcshukuSearchProvider : SearchProvider {
                             tags = emptyList(),
                             publishingHouse = "八叉书库🔞",
                             wordCount = WordCount(0),
-                            lastUpdated = LocalDateTime.now(),
-                            isComplete = false
+                            lastUpdated = lastUpdated,
+                            isComplete = isComplete
                         )
                     )
                 )

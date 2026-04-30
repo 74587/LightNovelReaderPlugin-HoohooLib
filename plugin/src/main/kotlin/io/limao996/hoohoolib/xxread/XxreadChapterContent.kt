@@ -4,6 +4,7 @@ import android.util.Base64
 import cxhttp.CxHttp
 import io.limao996.hoohoolib.utils.UserAgentGenerator
 import io.nightfish.lightnovelreader.api.book.ChapterContent
+import io.nightfish.lightnovelreader.api.book.LocalBookDataSourceApi
 import io.nightfish.lightnovelreader.api.book.MutableChapterContent
 import io.nightfish.lightnovelreader.api.content.builder.ContentBuilder
 import io.nightfish.lightnovelreader.api.content.builder.simpleText
@@ -12,7 +13,9 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 suspend fun XxreadChapterContent(
-    chapterId: String
+    chapterId: String,
+    bookId: String,
+    localBookDataSourceApi: LocalBookDataSourceApi,
 ): ChapterContent {
     val parts = chapterId.split("|")
     if (parts.size < 3) return ChapterContent.empty(chapterId)
@@ -39,13 +42,20 @@ suspend fun XxreadChapterContent(
         encodedContent
     }
 
+    val volumes = localBookDataSourceApi.getBookVolumes(bookId)!!.volumes
+    val flatChapter = volumes.flatMap { volume -> volume.chapters }
+    val flatChapterIds = flatChapter.map { it.id }
+    val currentIndex = flatChapterIds.indexOf(chapterId)
+    val prevId = flatChapterIds.getOrNull(currentIndex - 1)
+    val nextId = flatChapterIds.getOrNull(currentIndex + 1)
+
     return MutableChapterContent(
         id = chapterId,
         title = "",
         content = ContentBuilder().apply {
             simpleText(decodedContent)
         }.build(),
-        lastChapter = "",
-        nextChapter = ""
+        lastChapter = prevId ?: "",
+        nextChapter = nextId ?: ""
     )
 }

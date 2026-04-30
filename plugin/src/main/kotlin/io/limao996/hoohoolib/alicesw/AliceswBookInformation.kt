@@ -42,7 +42,7 @@ suspend fun AliceswBookInformation(
         tags = classified + tags,
         publishingHouse = "爱丽丝书屋🎓",
         wordCount = WordCount(wordCount),
-        lastUpdated = LocalDateTime.now(),
+        lastUpdated = LocalDateTime.MIN,
         isComplete = state.contains("已完结")
     )
 }

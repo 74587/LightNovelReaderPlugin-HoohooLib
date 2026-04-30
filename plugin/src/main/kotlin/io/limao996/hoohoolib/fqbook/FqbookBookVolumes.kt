@@ -6,27 +6,25 @@ import io.nightfish.lightnovelreader.api.book.ChapterInformation
 import io.nightfish.lightnovelreader.api.book.Volume
 
 suspend fun FqbookBookVolumes(id: String): BookVolumes {
-    val soup = httpGet("$FQBOOK_HOST$id", useWindowsUA = true)
+    val soup = httpGet(
+        "$FQBOOK_HOST/chapterList-$id.html", true
+    )?.selectFirst("div.page_main") ?: return BookVolumes.empty()
 
-    val tocUrl = soup?.selectFirst(".xiaoshuomulu a")?.attr("href") ?: id
-
-    val fullTocUrl = if (tocUrl.startsWith("http")) tocUrl else "$FQBOOK_HOST$tocUrl"
-    val tocSoup = httpGet(fullTocUrl, useWindowsUA = true)
-
-    val chapterElements = tocSoup?.select(".section_list li") ?: emptyList()
-    val chapters = chapterElements.map { el ->
-        val link = el.selectFirst("a") ?: el
-        ChapterInformation(
-            id = link.attr("href"),
-            title = link.text(),
-        )
-    }
+    val volumeTitles = soup.select("p.section_title")
+    val volumeLists = soup.select("ul.section_list")
 
     return BookVolumes(
-        id, listOf(
+        id, volumeLists.mapIndexed { index, elements ->
+
             Volume(
-                volumeId = id, volumeTitle = "正文", chapters = chapters
-            )
-        )
-    )
+                volumeId = index.toString(),
+                volumeTitle = volumeTitles[index].text(),
+                chapters = elements.children().map {
+                    val info = it.selectFirst("a")
+                    ChapterInformation(
+                        id = info?.attr("href")?.removePrefix("read-")?.removeSuffix(".html") ?: "",
+                        title = info?.text() ?: ""
+                    )
+                })
+        })
 }

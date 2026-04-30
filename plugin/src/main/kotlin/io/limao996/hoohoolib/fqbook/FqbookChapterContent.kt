@@ -1,58 +1,69 @@
 package io.limao996.hoohoolib.fqbook
 
+import android.content.Context
+import androidx.core.net.toUri
 import cxhttp.CxHttp
 import io.limao996.hoohoolib.utils.UserAgentGenerator
+import io.limao996.hoohoolib.utils.browserGet
+import io.limao996.hoohoolib.utils.httpGet
+import io.limao996.hoohoolib.utils.infoLog
+import io.nightfish.lightnovelreader.api.book.BookVolumes
 import io.nightfish.lightnovelreader.api.book.ChapterContent
+import io.nightfish.lightnovelreader.api.book.LocalBookDataSourceApi
 import io.nightfish.lightnovelreader.api.book.MutableChapterContent
 import io.nightfish.lightnovelreader.api.content.builder.ContentBuilder
+import io.nightfish.lightnovelreader.api.content.builder.image
 import io.nightfish.lightnovelreader.api.content.builder.simpleText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 suspend fun FqbookChapterContent(
-    chapterId: String
+    chapterId: String,
+    bookId: String,
+    localBookDataSourceApi: LocalBookDataSourceApi,
 ): ChapterContent {
-    val fullChapterUrl = if (chapterId.startsWith("http")) chapterId else "$FQBOOK_HOST$chapterId"
+    val doc = httpGet(
+        "$FQBOOK_HOST/read-$chapterId.html", true
+    ) ?: return ChapterContent.empty()
+    val sign = Regex("""&v=([^"]+)""").find(doc.toString())?.groupValues?.get(
+        1
+    ) ?: return ChapterContent.empty()
 
-    val ua = UserAgentGenerator().generateWindowsUA()
+    val soup = httpGet(
+        "$FQBOOK_HOST/_getcontent.php?id=$chapterId&v=$sign", true
+    ) ?: return ChapterContent.empty()
 
-    // Step 1: Fetch chapter page to extract the v parameter
-    val chapterResponse = withContext(Dispatchers.IO) {
-        CxHttp.get(fullChapterUrl) {
-            header("user-agent", ua)
-        }.await()
-    }
-    val chapterHtml = chapterResponse.body?.string() ?: return ChapterContent.empty(chapterId)
+    val volumes = localBookDataSourceApi.getBookVolumes(bookId)!!.volumes
+    val flatChapter = volumes.flatMap { volume -> volume.chapters }
+    val flatChapterIds = flatChapter.map { it.id }
+    val currentIndex = flatChapterIds.indexOf(chapterId)
+    val prevId = flatChapterIds.getOrNull(currentIndex - 1)
+    val nextId = flatChapterIds.getOrNull(currentIndex + 1)
 
-    // Extract v parameter: &v=(some_value)"
-    val vMatch = Regex("&v=([^\"]+)").find(chapterHtml)
-    val vParam = vMatch?.groupValues?.get(1) ?: return ChapterContent.empty(chapterId)
-
-    // Extract book id from the URL: read-XXXX.html → XXXX
-    val bookIdMatch = Regex("read-(\\d+)\\.html").find(fullChapterUrl)
-    val contentId = bookIdMatch?.groupValues?.get(1) ?: return ChapterContent.empty(chapterId)
-
-    // Step 2: Fetch actual content from _getcontent.php
-    val contentUrl = "$FQBOOK_HOST/_getcontent.php?id=$contentId&v=$vParam"
-    val contentResponse = withContext(Dispatchers.IO) {
-        CxHttp.get(contentUrl) {
-            header("user-agent", ua)
-        }.await()
-    }
-    val rawContent = contentResponse.body?.string() ?: ""
-
-    // Clean up the content
-    val cleaned = rawContent
-        .replace(Regex("<style[^>]*>[\\s\\S]*?</style>"), "")
-        .replace(Regex("<([^<]*?)class[^>]*?>"), "")
+    val title = flatChapter[currentIndex].title
+    val content = soup.body().children()
+    content.removeAt(0)
 
     return MutableChapterContent(
-        id = chapterId,
-        title = "",
-        content = ContentBuilder().apply {
-            simpleText(cleaned)
-        }.build(),
-        lastChapter = "",
-        nextChapter = ""
+        id = chapterId, title = title, content = ContentBuilder().apply {
+            val buffer = ArrayList<String>()
+            content.forEach {
+                when (it.tag().name) {
+                    "p" -> buffer.add("\u3000\u3000" + it.text().trim())
+                    "img" -> {
+                        if (buffer.isNotEmpty()) {
+                            simpleText(buffer.joinToString("\n"))
+                            buffer.clear()
+                        }
+                        image(it.attr("src").toUri())
+                    }
+                }
+
+            }
+            if (buffer.isNotEmpty()) {
+                simpleText(buffer.joinToString("\n"))
+                buffer.clear()
+            }
+        }.build(), lastChapter = prevId ?: "", nextChapter = nextId ?: ""
     )
 }

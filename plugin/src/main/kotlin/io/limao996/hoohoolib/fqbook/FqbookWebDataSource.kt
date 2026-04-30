@@ -3,6 +3,7 @@ package io.limao996.hoohoolib.fqbook
 import android.content.Context
 import cxhttp.CxHttp
 import cxhttp.CxHttpHelper
+import io.limao996.hoohoolib.fqbook.explore.FqbookExplorePageProvider
 import io.limao996.hoohoolib.utils.KotlinSerializationCborConverter
 import io.limao996.hoohoolib.utils.UserAgentGenerator
 import io.nightfish.lightnovelreader.api.book.BookRepositoryApi
@@ -87,12 +88,7 @@ class FqbookWebDataSource(
     }
 
     override val searchProvider = FqbookSearchProvider
-    override val explorePageProvider = object : ExplorePageProvider.DefaultExplorePageProvider {
-        override val explorePageIdList: List<String> = emptyList()
-        override val exploreTapPageDataSourceMap: Map<String, ExploreTapPageDataSource> = emptyMap()
-        override val exploreExpandedPageDataSourceMap: Map<String, ExploreExpandedPageDataSource> =
-            emptyMap()
-    }
+    override val explorePageProvider = FqbookExplorePageProvider
 
     override suspend fun getBookInformation(id: String) = ifCache(id) { FqbookBookInformation(id) }
 
@@ -100,6 +96,8 @@ class FqbookWebDataSource(
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
         ifCache(chapterId + bookId) {
-            FqbookChapterContent(chapterId)
+            FqbookChapterContent(
+                chapterId, bookId, localBookDataSourceApi
+            )
         }
 }

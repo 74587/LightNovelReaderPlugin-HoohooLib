@@ -75,7 +75,7 @@ object AliceswSearchProvider : SearchProvider {
                 val updateTime =
                     Regex("更新时间：(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})").find(timeText)?.groupValues?.get(
                         1
-                    )?.let { LocalDateTime.parse(it, formatter) } ?: LocalDateTime.now()
+                    )?.let { LocalDateTime.parse(it, formatter) } ?: LocalDateTime.MIN
 
                 emit(
                     SearchResult.MultipleBook(

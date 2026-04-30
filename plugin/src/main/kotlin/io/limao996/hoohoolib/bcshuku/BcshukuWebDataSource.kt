@@ -3,6 +3,7 @@ package io.limao996.hoohoolib.bcshuku
 import android.content.Context
 import cxhttp.CxHttp
 import cxhttp.CxHttpHelper
+import io.limao996.hoohoolib.bcshuku.explore.BcshukuExplorePageProvider
 import io.limao996.hoohoolib.utils.KotlinSerializationCborConverter
 import io.limao996.hoohoolib.utils.UserAgentGenerator
 import io.nightfish.lightnovelreader.api.book.BookRepositoryApi
@@ -87,12 +88,7 @@ class BcshukuWebDataSource(
     }
 
     override val searchProvider = BcshukuSearchProvider
-    override val explorePageProvider = object : ExplorePageProvider.DefaultExplorePageProvider {
-        override val explorePageIdList: List<String> = emptyList()
-        override val exploreTapPageDataSourceMap: Map<String, ExploreTapPageDataSource> = emptyMap()
-        override val exploreExpandedPageDataSourceMap: Map<String, ExploreExpandedPageDataSource> =
-            emptyMap()
-    }
+    override val explorePageProvider = BcshukuExplorePageProvider
 
     override suspend fun getBookInformation(id: String) = ifCache(id) { BcshukuBookInformation(id) }
 
@@ -100,6 +96,6 @@ class BcshukuWebDataSource(
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
         ifCache(chapterId + bookId) {
-            BcshukuChapterContent(chapterId)
+            BcshukuChapterContent(chapterId, bookId, localBookDataSourceApi)
         }
 }

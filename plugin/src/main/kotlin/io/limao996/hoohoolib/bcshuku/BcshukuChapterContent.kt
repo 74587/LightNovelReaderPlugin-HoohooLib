@@ -4,6 +4,7 @@ import cxhttp.CxHttp
 import io.limao996.hoohoolib.utils.UserAgentGenerator
 import io.limao996.hoohoolib.utils.infoLog
 import io.nightfish.lightnovelreader.api.book.ChapterContent
+import io.nightfish.lightnovelreader.api.book.LocalBookDataSourceApi
 import io.nightfish.lightnovelreader.api.book.MutableChapterContent
 import io.nightfish.lightnovelreader.api.content.builder.ContentBuilder
 import io.nightfish.lightnovelreader.api.content.builder.simpleText
@@ -17,7 +18,9 @@ import org.json.JSONObject
 private val okHttpClient = OkHttpClient()
 
 suspend fun BcshukuChapterContent(
-    chapterId: String
+    chapterId: String,
+    bookId: String,
+    localBookDataSourceApi: LocalBookDataSourceApi,
 ): ChapterContent {
     val ua = UserAgentGenerator().generateAndroidUA()
 
@@ -39,7 +42,6 @@ suspend fun BcshukuChapterContent(
     val novel = config.optString("novel", "")
     val chapter = config.optString("chapter", "")
 
-    // Step 2: POST to conapi.php to get actual content
     val postBody =
         FormBody.Builder().add("url", url).add("mobile", mobile).add("isk", isk).add("novel", novel)
             .add("chapter", chapter).build()
@@ -49,15 +51,24 @@ suspend fun BcshukuChapterContent(
         .header("referer", chapterId).post(postBody).build()
 
     val contentJson = withContext(Dispatchers.IO) {
-        okHttpClient.newCall(postRequest).execute().body?.string()
-    } ?: return ChapterContent.empty(chapterId)
+        okHttpClient.newCall(postRequest).execute().body.string()
+    }
     infoLog(contentJson)
     val result = JSONObject(contentJson)
     val content = result.optString("content", "")
 
+    val volumes = localBookDataSourceApi.getBookVolumes(bookId)!!.volumes
+    val flatChapter = volumes.flatMap { volume -> volume.chapters }
+    val flatChapterIds = flatChapter.map { it.id }
+    val currentIndex = flatChapterIds.indexOf(chapterId)
+    val prevId = flatChapterIds.getOrNull(currentIndex - 1)
+    val nextId = flatChapterIds.getOrNull(currentIndex + 1)
+
+    val title = flatChapter[currentIndex].title
+
     return MutableChapterContent(
-        id = chapterId, title = "", content = ContentBuilder().apply {
+        id = chapterId, title = title, content = ContentBuilder().apply {
             simpleText(content)
-        }.build(), lastChapter = "", nextChapter = ""
+        }.build(), lastChapter = prevId ?: "", nextChapter = nextId ?: ""
     )
 }

@@ -19,7 +19,7 @@ suspend fun loadSimpleBookList(
     page: Int = 1,
     order: ExploreCategory.Order = ExploreCategory.Order.UpdateTime
 ): List<BookInformation> {
-    val soup = httpGet(ALICESW_HOST + category.getUrl(page, order), true)
+    val soup = httpGet(category.getUrl(page, order), true)
     return soup?.selectFirst(".rec_rullist")?.children()?.map { item ->
         val titleDoc = item?.selectFirst(".two a")
         val title = titleDoc?.text()?.removeSuffix("全文阅读") ?: ""
@@ -48,21 +48,5 @@ suspend fun loadSimpleBookList(
             lastUpdated = lastUpdated,
             isComplete = false,
         )
-    } ?: emptyList()
-}
-
-suspend fun loadCompleteBookList(
-    category: ExploreCategory,
-    page: Int = 1,
-    order: ExploreCategory.Order = ExploreCategory.Order.UpdateTime
-): List<Deferred<BookInformation>> = withContext(Dispatchers.IO) {
-    val soup = httpGet(ALICESW_HOST + category.getUrl(page, order), true)
-
-    soup?.selectFirst(".rec_rullist")?.children()?.mapNotNull { item ->
-        item?.selectFirst(".two a")?.attr("href")?.removePrefix("/novel/")?.removeSuffix(".html")
-    }?.map { id ->
-        async {
-            AliceswBookInformation(id)
-        }
     } ?: emptyList()
 }

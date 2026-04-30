@@ -32,9 +32,7 @@ import kotlinx.coroutines.withContext
 const val XXREAD_HOST = "https://xxread.net"
 
 @Suppress("unused")
-@WebDataSource(
-    name = "肉肉阅读🔞", provider = "HoohooLib from xxread.net"
-)
+//@WebDataSource(name = "肉肉阅读🔞", provider = "HoohooLib from xxread.net")
 class XxreadWebDataSource(
     val context: Context,
     val userDataDaoApi: UserDataDaoApi,
@@ -100,6 +98,6 @@ class XxreadWebDataSource(
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
         ifCache(chapterId + bookId) {
-            XxreadChapterContent(chapterId)
+            XxreadChapterContent(chapterId, bookId, localBookDataSourceApi)
         }
 }

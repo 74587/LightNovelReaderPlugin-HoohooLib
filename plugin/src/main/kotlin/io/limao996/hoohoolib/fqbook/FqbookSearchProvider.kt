@@ -1,6 +1,7 @@
 package io.limao996.hoohoolib.fqbook
 
 import android.net.Uri
+import androidx.core.net.toUri
 import io.limao996.hoohoolib.utils.httpGet
 import io.nightfish.lightnovelreader.api.book.MutableBookInformation
 import io.nightfish.lightnovelreader.api.book.WordCount
@@ -9,11 +10,16 @@ import io.nightfish.lightnovelreader.api.web.search.SearchProvider
 import io.nightfish.lightnovelreader.api.web.search.SearchResult
 import io.nightfish.lightnovelreader.api.web.search.SearchType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
 import java.net.URLEncoder
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import kotlin.time.Duration.Companion.seconds
 
 object FqbookSearchProvider : SearchProvider {
     override val searchTypes: List<SearchType> = listOf(
@@ -24,52 +30,60 @@ object FqbookSearchProvider : SearchProvider {
         searchType: SearchType, keyword: String
     ): Flow<SearchResult> = flow {
         val q = URLEncoder.encode(keyword, "utf-8")
-        val soup = httpGet("$FQBOOK_HOST/search.html?searchword=$q", useWindowsUA = true)
 
-        if (soup == null) {
-            emit(SearchResult.Error("网页请求失败！"))
-            return@flow
-        }
+        var currentPage = 0
+        while (currentCoroutineContext().isActive) {
+            val soup = httpGet(
+                "$FQBOOK_HOST/m/search.html?page=${currentPage + 1}&searchword=$q"
+            )
 
-        // Try primary search result layout
-        val items = soup.selectFirst(".sousuojieguo ul")
-            ?.children()
-            ?: soup.select(".yuepiaobang tbody tr")
+            if (soup == null) {
+                emit(SearchResult.Error("网页请求失败！"))
+                return@flow
+            }
 
-        if (items.isEmpty()) {
-            emit(SearchResult.Empty())
-            return@flow
-        }
+            val items = soup.selectFirst(".book-list")?.children() ?: emptyList()
 
-        for (item in items) {
-            val link = item.selectFirst("a") ?: item.selectFirst(".shuming a")
-            val title = link?.text() ?: continue
-            val bookUrl = link.attr("href")
-            if (bookUrl.isEmpty()) continue
+            if (items.isEmpty()) {
+                emit(SearchResult.Empty())
+                return@flow
+            }
 
-            val author = item.selectFirst(".author")
-                ?: item.select("a").let { if (it.size > 1) it[1] else null }
-            val authorText = author?.text() ?: ""
+            for (item in items) {
+                val link = item.selectFirst(".column-2 .left a") ?: continue
+                val id = link.attr("href").removePrefix("book-").removeSuffix(".html")
+                val coverUrl =
+                    link.child(0).attr("src").let { FQBOOK_HOST + it.removePrefix("..") }.toUri()
+                val title = item.selectFirst(".right h5 .name")?.text() ?: continue
+                val author = item.selectFirst(".right .author")?.text() ?: ""
+                val description = item.selectFirst(".info .summary")?.text() ?: ""
+                val lastUpdated =
+                    item.selectFirst(".right .time")?.text()?.removePrefix("最后更新：")?.let {
+                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                        LocalDateTime.parse(it, formatter)
+                    } ?: LocalDateTime.MIN
+                val isComplete = item.selectFirst(".right .status")?.text() == "已完结"
 
-            val kind = item.selectFirst(".fenlei")?.text() ?: item.ownText()
-
-            emit(
-                SearchResult.MultipleBook(
-                    MutableBookInformation(
-                        id = bookUrl,
-                        title = title,
-                        subtitle = "",
-                        coverUrl = Uri.EMPTY,
-                        author = authorText,
-                        description = "",
-                        tags = listOfNotNull(kind.takeIf { it.isNotBlank() }),
-                        publishingHouse = "疯情书库🔞",
-                        wordCount = WordCount(0),
-                        lastUpdated = LocalDateTime.now(),
-                        isComplete = false
+                emit(
+                    SearchResult.MultipleBook(
+                        MutableBookInformation(
+                            id = id,
+                            title = title,
+                            subtitle = "",
+                            coverUrl = coverUrl,
+                            author = author,
+                            description = description,
+                            tags = emptyList(),
+                            publishingHouse = "疯情书库🔞",
+                            wordCount = WordCount(0),
+                            lastUpdated = lastUpdated,
+                            isComplete = isComplete
+                        )
                     )
                 )
-            )
+            }
+            currentPage++
+            delay(2.seconds)
         }
         emit(SearchResult.End())
     }.flowOn(Dispatchers.IO)
