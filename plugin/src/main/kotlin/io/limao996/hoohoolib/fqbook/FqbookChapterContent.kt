@@ -2,7 +2,6 @@ package io.limao996.hoohoolib.fqbook
 
 import androidx.core.net.toUri
 import io.limao996.hoohoolib.utils.httpGet
-import io.limao996.hoohoolib.utils.infoLog
 import io.nightfish.lightnovelreader.api.book.ChapterContent
 import io.nightfish.lightnovelreader.api.book.LocalBookDataSourceApi
 import io.nightfish.lightnovelreader.api.book.MutableChapterContent

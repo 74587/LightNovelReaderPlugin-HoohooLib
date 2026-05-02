@@ -29,7 +29,9 @@ suspend fun Jm18BookInformation(
         ?.let(::buildDecryptedImageUrl)?.toUri() ?: Uri.EMPTY
     val author =
         soup.selectFirst("div.detail-page__meta-row")?.child(1)?.child(1)?.child(0)?.text() ?: ""
-    val description = soup.selectFirst("div.detail-intro__body")?.children()?.joinToString("\n\n") {
+    val description = soup.selectFirst("div.detail-intro__body")?.children()?.also {
+        it.removeAt(it.size - 1)
+    }?.joinToString("\n\n") {
         it.wholeText().trim().split("\n").filter { it.isNotBlank() }.joinToString("\n") { p ->
             "ㅤㅤ${p.trim()}"
         }

@@ -96,9 +96,11 @@ class AliceswWebDataSource(
 
     override val searchProvider = AliceswSearchProvider
 
-    override suspend fun getBookInformation(id: String) = ifCache("$tag:info:$id") { AliceswBookInformation(id) }
+    override suspend fun getBookInformation(id: String) =
+        ifCache("$tag:info:$id") { AliceswBookInformation(id) }
 
-    override suspend fun getBookVolumes(id: String) = ifCache("$tag:volumes:$id") { AliceswBookVolumes(id) }
+    override suspend fun getBookVolumes(id: String) =
+        ifCache("$tag:volumes:$id") { AliceswBookVolumes(id) }
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
         ifCache("$tag:content:$bookId:$chapterId") {

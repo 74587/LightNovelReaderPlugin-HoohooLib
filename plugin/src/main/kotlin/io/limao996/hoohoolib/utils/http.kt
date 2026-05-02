@@ -5,7 +5,6 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
@@ -21,7 +20,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import kotlin.coroutines.resume
 
-val httpClient = HttpClient(OkHttp)
+val httpClient = HttpClient()
 
 // 常量提取
 private const val MAX_RETRY_TIMES = 3
