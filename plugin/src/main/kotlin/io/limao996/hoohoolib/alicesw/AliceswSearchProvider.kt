@@ -72,11 +72,17 @@ object AliceswSearchProvider : SearchProvider {
                         ?.removeSuffix("万")?.replace(",", "")?.toFloatOrNull()?.times(10000)
                         ?.toInt() ?: 0
                 val timeText = item.child(4)?.text() ?: ""
-                val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
                 val updateTime =
                     Regex("更新时间：(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})").find(timeText)?.groupValues?.get(
                         1
-                    )?.let { LocalDateTime.parse(it, formatter) } ?: LocalDateTime.now()
+                    )?.let {
+                        try {
+                            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                            LocalDateTime.parse(it, formatter)
+                        } catch (e: Exception) {
+                            LocalDateTime.now()
+                        }
+                    } ?: LocalDateTime.now()
                 emit(
                     SearchResult.MultipleBook(
                         MutableBookInformation(
@@ -87,7 +93,7 @@ object AliceswSearchProvider : SearchProvider {
                             author = author,
                             description = description,
                             tags = tags,
-                            publishingHouse = "",
+                            publishingHouse = "爱丽丝书屋🔞",
                             wordCount = WordCount(wordCount),
                             lastUpdated = updateTime,
                             isComplete = status

@@ -60,8 +60,12 @@ object FqbookSearchProvider : SearchProvider {
                 val description = item.selectFirst(".info .summary")?.wholeText()?.trim() ?: ""
                 val lastUpdated =
                     item.selectFirst(".right .time")?.text()?.removePrefix("最后更新：")?.let {
-                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                        LocalDateTime.parse(it, formatter)
+                        try {
+                            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                            LocalDateTime.parse(it, formatter)
+                        } catch (e: Exception) {
+                            LocalDateTime.now()
+                        }
                     } ?: LocalDateTime.now()
                 val isComplete = item.selectFirst(".right .status")?.text() == "已完结"
 

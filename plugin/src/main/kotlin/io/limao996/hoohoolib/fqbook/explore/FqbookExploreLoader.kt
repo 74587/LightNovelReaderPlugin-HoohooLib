@@ -114,8 +114,12 @@ object FqbookExploreLoader {
 
 
             val lastUpdated = item.selectFirst("p.update span.time")?.text()?.let {
-                val formatter = DateTimeFormatter.ofPattern("(yyyy-MM-dd HH:mm:ss)")
-                LocalDateTime.parse(it, formatter)
+                try {
+                    val formatter = DateTimeFormatter.ofPattern("(yyyy-MM-dd HH:mm:ss)")
+                    LocalDateTime.parse(it, formatter)
+                } catch (e: Exception) {
+                    LocalDateTime.now()
+                }
             } ?: LocalDateTime.now()
 
             MutableBookInformation(

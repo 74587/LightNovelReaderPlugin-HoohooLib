@@ -69,9 +69,10 @@ suspend fun BcshukuChapterContent(
     return MutableChapterContent(
         id = chapterId, title = title, content = ContentBuilder().apply {
             simpleText(
-                content.replace("                ", "ㅤㅤ")
-                    .replace(Regex("ㅤㅤ\nㅤㅤ\n"), "\n")
-            )
+                content.replace(Regex("\\s*\n\\s*\n"), "\n").trim().split("\n")
+                    .joinToString("\n\n") { p ->
+                        "ㅤㅤ${p.trim()}"
+                    })
         }.build(), lastChapter = prevId ?: "", nextChapter = nextId ?: ""
     )
 }

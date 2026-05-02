@@ -14,10 +14,9 @@ suspend fun AliceswBookInformation(
 
     val detailBox = soup?.selectFirst(".detail-box")
 
-    val title =
-        detailBox?.selectFirst(".top .xs-title")?.text()?.removeSuffix("全文阅读") ?: ""
-    val description = soup?.selectFirst(".jianjie")?.wholeText()?.trim()?.split("\n")
-        ?.joinToString("\n") {
+    val title = detailBox?.selectFirst(".top .xs-title")?.text()?.removeSuffix("全文阅读") ?: ""
+    val description =
+        soup?.selectFirst(".jianjie")?.wholeText()?.trim()?.split("\n")?.joinToString("\n") {
             "ㅤㅤ${it.trim()}"
         } ?: ""
     val coverDoc = detailBox?.selectFirst(".imgbox img")
@@ -29,7 +28,6 @@ suspend fun AliceswBookInformation(
     val tags = (soup?.select(".tags .tg span a")?.map {
         "#" + it.ownText()
     } ?: emptyList())
-    val subTitle = detailBox?.selectFirst(".fix")?.child(3)?.text() ?: ""
     val state = detailBox?.selectFirst(".fix")?.child(5)?.text() ?: ""
     val wordCountText = detailBox?.selectFirst(".fix")?.child(4)?.text() ?: ""
     val wordCount = Regex("字数：(\\S+)").find(wordCountText)?.groupValues?.get(1)?.replace(",", "")
@@ -38,12 +36,12 @@ suspend fun AliceswBookInformation(
     return MutableBookInformation(
         id = id,
         title = title,
-        subtitle = subTitle,
+        subtitle = "",
         coverUrl = coverUrl,
         author = author,
         description = description,
         tags = classified + tags,
-        publishingHouse = "爱丽丝书屋🎓",
+        publishingHouse = "爱丽丝书屋🔞",
         wordCount = WordCount(wordCount),
         lastUpdated = LocalDateTime.now(),
         isComplete = state.contains("已完结")

@@ -29,10 +29,14 @@ suspend fun loadSimpleBookList(
             item.selectFirst(".five")?.text()?.replace(",", "")?.removeSuffix("万")?.toFloatOrNull()
                 ?.times(10000)?.toInt() ?: 0
         val lastUpdated = item.selectFirst(".six")?.text()?.let {
-            val time = if (it.contains(':')) it else "$it 00:00"
-            LocalDateTime.parse(
-                time, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-            )
+            try {
+                val time = if (it.contains(':')) it else "$it 00:00"
+                LocalDateTime.parse(
+                    time, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                )
+            } catch (e: Exception) {
+                LocalDateTime.now()
+            }
         } ?: LocalDateTime.now()
 
         MutableBookInformation(
@@ -43,7 +47,7 @@ suspend fun loadSimpleBookList(
             coverUrl = "https://img.321cdn.com/img/01.png".toUri(),
             description = "",
             tags = emptyList(),
-            publishingHouse = "爱丽丝书屋🎓",
+            publishingHouse = "爱丽丝书屋🔞",
             wordCount = WordCount(wordCount),
             lastUpdated = lastUpdated,
             isComplete = false,
