@@ -16,9 +16,11 @@ suspend fun AliceswBookInformation(
 
     val title = detailBox?.selectFirst(".top .xs-title")?.text()?.removeSuffix("全文阅读") ?: ""
     val description =
-        soup?.selectFirst(".jianjie")?.wholeText()?.trim()?.split("\n")?.joinToString("\n") {
-            "ㅤㅤ${it.trim()}"
-        } ?: ""
+        soup?.selectFirst(".jianjie")?.wholeText()?.trim()?.split("\n")?.filter { it.isNotBlank() }
+            ?.joinToString("\n") {
+                "ㅤㅤ${it.trim()}"
+            } ?: ""
+
     val coverDoc = detailBox?.selectFirst(".imgbox img")
     val coverUrl = (coverDoc?.attr("src") ?: "https://img.321cdn.com/img/01.png").toUri()
     val author = detailBox?.selectFirst(".fix")?.child(1)?.selectFirst("a")?.text() ?: ""

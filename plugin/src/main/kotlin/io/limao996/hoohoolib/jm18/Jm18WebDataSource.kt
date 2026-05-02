@@ -2,12 +2,13 @@ package io.limao996.hoohoolib.jm18
 
 import android.content.Context
 import android.net.Uri
-import cxhttp.CxHttp
-import cxhttp.CxHttpHelper
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
 import io.limao996.hoohoolib.jm18.utils.ImageDecryptServer
-import io.limao996.hoohoolib.utils.KotlinSerializationCborConverter
 import io.limao996.hoohoolib.utils.UserAgentGenerator
-import io.limao996.hoohoolib.utils.infoLog
+import io.limao996.hoohoolib.utils.httpClient
 import io.nightfish.lightnovelreader.api.book.BookInformation
 import io.nightfish.lightnovelreader.api.book.BookRepositoryApi
 import io.nightfish.lightnovelreader.api.book.BookVolumes
@@ -28,7 +29,6 @@ import io.nightfish.lightnovelreader.api.web.explore.ExplorePageProvider
 import io.nightfish.lightnovelreader.api.web.explore.ExploreTapPageDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,9 +62,11 @@ class Jm18WebDataSource(
     override var offLine: Boolean = false
     override val isOffLineFlow = MutableStateFlow(false)
     override suspend fun isOffLine(): Boolean = withContext(Dispatchers.IO) {
-        !CxHttp.get(JM18_HOST) {
-            header("user-agent", UserAgentGenerator().generateWindowsUA())
-        }.await().isSuccessful
+        httpClient.get(JM18_HOST) {
+            header(
+                "user-agent", UserAgentGenerator().generateWindowsUA()
+            )
+        }.status != HttpStatusCode.OK
     }
 
     override val cache = Cache(
@@ -84,9 +86,6 @@ class Jm18WebDataSource(
 
 
     override fun onLoad() {
-        @Suppress("OPT_IN_USAGE") CxHttpHelper.init(
-            scope = MainScope(), debugLog = true, converter = KotlinSerializationCborConverter()
-        )
 
         coroutineScope.launch {
             while (currentCoroutineContext().isActive) {
@@ -101,8 +100,8 @@ class Jm18WebDataSource(
                 val server = ImageDecryptServer(JM18_HTTP_PORT)
                 server.start()
 
-                if (CxHttp.get("http://127.0.0.1:$JM18_HTTP_PORT/ping")
-                        .await().body?.string() == "OK"
+                if (httpClient.get("http://127.0.0.1:$JM18_HTTP_PORT/ping")
+                        .bodyAsText() == "OK"
                 ) break
                 JM18_HTTP_PORT = Random.nextInt(10000, 65535)
                 server.stop()

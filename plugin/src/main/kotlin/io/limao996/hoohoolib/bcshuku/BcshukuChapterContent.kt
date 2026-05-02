@@ -1,8 +1,14 @@
 package io.limao996.hoohoolib.bcshuku
 
-import cxhttp.CxHttp
+import io.ktor.client.request.forms.FormDataContent
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.parameters
 import io.limao996.hoohoolib.utils.UserAgentGenerator
-import io.limao996.hoohoolib.utils.infoLog
+import io.limao996.hoohoolib.utils.httpClient
 import io.nightfish.lightnovelreader.api.book.ChapterContent
 import io.nightfish.lightnovelreader.api.book.LocalBookDataSourceApi
 import io.nightfish.lightnovelreader.api.book.MutableChapterContent
@@ -10,12 +16,9 @@ import io.nightfish.lightnovelreader.api.content.builder.ContentBuilder
 import io.nightfish.lightnovelreader.api.content.builder.simpleText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.FormBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import org.json.JSONObject
+import kotlin.text.trim
 
-private val okHttpClient = OkHttpClient()
 
 suspend fun BcshukuChapterContent(
     chapterId: String,
@@ -26,11 +29,13 @@ suspend fun BcshukuChapterContent(
 
     // Step 1: Fetch chapter page to extract the JSON config
     val pageResponse = withContext(Dispatchers.IO) {
-        CxHttp.get(chapterId) {
-            header("user-agent", ua)
-        }.await()
+        httpClient.get(chapterId) {
+            header(
+                "user-agent", ua
+            )
+        }
     }
-    val pageHtml = pageResponse.body?.string() ?: return ChapterContent.empty(chapterId)
+    val pageHtml = pageResponse.bodyAsText()
 
     // Extract JSON config: {"url":"...","mobile":"...","isk":"...","novel":"...","chapter":"..."}
     val jsonMatch = Regex("""\{"url"[^}]*"chapter"[^}]*\}""").find(pageHtml)
@@ -42,16 +47,21 @@ suspend fun BcshukuChapterContent(
     val novel = config.optString("novel", "")
     val chapter = config.optString("chapter", "")
 
-    val postBody =
-        FormBody.Builder().add("url", url).add("mobile", mobile).add("isk", isk).add("novel", novel)
-            .add("chapter", chapter).build()
-
-    val postRequest = Request.Builder().url("$BCSHUKU_HOST/conapi.php").header("user-agent", ua)
-        .header("origin", BCSHUKU_HOST).header("x-requested-with", "XMLHttpRequest")
-        .header("referer", chapterId).post(postBody).build()
-
     val contentJson = withContext(Dispatchers.IO) {
-        okHttpClient.newCall(postRequest).execute().body.string()
+        httpClient.post("$BCSHUKU_HOST/conapi.php") {
+            header("user-agent", ua)
+            header("origin", BCSHUKU_HOST)
+            header("x-requested-with", "XMLHttpRequest")
+            header("referer", chapterId)
+
+            setBody(FormDataContent(parameters {
+                append("url", url)
+                append("mobile", mobile)
+                append("isk", isk)
+                append("novel", novel)
+                append("chapter", chapter)
+            }))
+        }.bodyAsText()
     }
 
     val result = JSONObject(contentJson)
@@ -68,11 +78,9 @@ suspend fun BcshukuChapterContent(
 
     return MutableChapterContent(
         id = chapterId, title = title, content = ContentBuilder().apply {
-            simpleText(
-                content.replace(Regex("\\s*\n\\s*\n"), "\n").trim().split("\n")
-                    .joinToString("\n\n") { p ->
-                        "ㅤㅤ${p.trim()}"
-                    })
+            simpleText(content.trim().split("\n").filter { it.isNotBlank() }.joinToString("\n\n") {
+                "ㅤㅤ${it.trim()}"
+            })
         }.build(), lastChapter = prevId ?: "", nextChapter = nextId ?: ""
     )
 }

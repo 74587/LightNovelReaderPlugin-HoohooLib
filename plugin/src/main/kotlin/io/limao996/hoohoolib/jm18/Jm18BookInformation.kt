@@ -30,7 +30,7 @@ suspend fun Jm18BookInformation(
     val author =
         soup.selectFirst("div.detail-page__meta-row")?.child(1)?.child(1)?.child(0)?.text() ?: ""
     val description = soup.selectFirst("div.detail-intro__body")?.children()?.map {
-        it.wholeText().trim().split("\n").joinToString("\n") { p ->
+        it.wholeText().trim().split("\n").filter { it.isNotBlank() }.joinToString("\n") { p ->
             "ㅤㅤ${p.trim()}"
         }
     }?.joinToString("\n\n") ?: ""

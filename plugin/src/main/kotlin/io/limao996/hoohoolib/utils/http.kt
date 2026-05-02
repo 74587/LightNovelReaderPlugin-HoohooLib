@@ -4,8 +4,12 @@ import android.content.Context
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import cxhttp.CxHttp
-import cxhttp.response.Response
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -16,6 +20,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import kotlin.coroutines.resume
+
+val httpClient = HttpClient(OkHttp)
 
 // 常量提取
 private const val MAX_RETRY_TIMES = 3
@@ -47,25 +53,23 @@ suspend fun httpGet(url: String, useWindowsUA: Boolean = false): Document? =
     requestLimiter.withPermit {
         executeWithRetry {
             executeHttpGet(url, useWindowsUA)
-        }?.body?.string()?.let(Jsoup::parse)
+        }?.bodyAsText()?.let(Jsoup::parse)
     }
 
 
 /**
  * 执行单次 HTTP GET 请求
  */
-private suspend fun executeHttpGet(url: String, useWindowsUA: Boolean): Response =
+private suspend fun executeHttpGet(url: String, useWindowsUA: Boolean): HttpResponse =
     withContext(Dispatchers.IO) {
-        CxHttp.get(url) {
-            headers(
-                mapOf(
-                    "user-agent" to userAgentGenerator.generate(
-                        if (useWindowsUA) UserAgentGenerator.Platform.Windows
-                        else UserAgentGenerator.Platform.Android
-                    )
+        httpClient.get(url) {
+            header(
+                "user-agent", userAgentGenerator.generate(
+                    if (useWindowsUA) UserAgentGenerator.Platform.Windows
+                    else UserAgentGenerator.Platform.Android
                 )
             )
-        }.scope(this).await()
+        }
     }
 
 /**

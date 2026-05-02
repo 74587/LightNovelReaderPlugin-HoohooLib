@@ -1,11 +1,12 @@
 package io.limao996.hoohoolib.fqbook
 
 import android.content.Context
-import cxhttp.CxHttp
-import cxhttp.CxHttpHelper
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.http.HttpStatusCode
 import io.limao996.hoohoolib.fqbook.explore.FqbookExplorePageProvider
-import io.limao996.hoohoolib.utils.KotlinSerializationCborConverter
 import io.limao996.hoohoolib.utils.UserAgentGenerator
+import io.limao996.hoohoolib.utils.httpClient
 import io.nightfish.lightnovelreader.api.book.BookRepositoryApi
 import io.nightfish.lightnovelreader.api.book.CanBeEmpty
 import io.nightfish.lightnovelreader.api.book.LocalBookDataSourceApi
@@ -17,12 +18,8 @@ import io.nightfish.lightnovelreader.api.util.Cache
 import io.nightfish.lightnovelreader.api.web.WebBookDataSource
 import io.nightfish.lightnovelreader.api.web.WebBookDataSourceManagerApi
 import io.nightfish.lightnovelreader.api.web.WebDataSource
-import io.nightfish.lightnovelreader.api.web.explore.ExploreExpandedPageDataSource
-import io.nightfish.lightnovelreader.api.web.explore.ExplorePageProvider
-import io.nightfish.lightnovelreader.api.web.explore.ExploreTapPageDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,9 +50,11 @@ class FqbookWebDataSource(
     override var offLine: Boolean = false
     override val isOffLineFlow = MutableStateFlow(false)
     override suspend fun isOffLine(): Boolean = withContext(Dispatchers.IO) {
-        !CxHttp.get(FQBOOK_HOST) {
-            header("user-agent", UserAgentGenerator().generateWindowsUA())
-        }.await().isSuccessful
+        httpClient.get(FQBOOK_HOST) {
+            header(
+                "user-agent", UserAgentGenerator().generateWindowsUA()
+            )
+        }.status != HttpStatusCode.OK
     }
 
     override val cache = Cache(
@@ -74,10 +73,6 @@ class FqbookWebDataSource(
     }
 
     override fun onLoad() {
-        @Suppress("OPT_IN_USAGE") CxHttpHelper.init(
-            scope = MainScope(), debugLog = true, converter = KotlinSerializationCborConverter()
-        )
-
         coroutineScope.launch {
             while (currentCoroutineContext().isActive) {
                 offLine = isOffLine()

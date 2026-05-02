@@ -28,7 +28,7 @@ suspend fun FqbookBookInformation(
         info[1].text().trim().removePrefix("字数：").removeSuffix(" 字").toIntOrNull() ?: 0
 
     val description =
-        soup.selectFirst(".book-intro .bd")?.wholeText()?.trim()?.split("\n")?.joinToString("\n") {
+        soup.selectFirst(".book-intro .bd")?.wholeText()?.trim()?.split("\n")?.filter { it.isNotBlank() }?.joinToString("\n") {
             "ㅤㅤ${it.trim()}"
         } ?: ""
 

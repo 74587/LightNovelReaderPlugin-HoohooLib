@@ -1,21 +1,14 @@
 package io.limao996.hoohoolib.fqbook
 
-import android.content.Context
 import androidx.core.net.toUri
-import cxhttp.CxHttp
-import io.limao996.hoohoolib.utils.UserAgentGenerator
-import io.limao996.hoohoolib.utils.browserGet
 import io.limao996.hoohoolib.utils.httpGet
 import io.limao996.hoohoolib.utils.infoLog
-import io.nightfish.lightnovelreader.api.book.BookVolumes
 import io.nightfish.lightnovelreader.api.book.ChapterContent
 import io.nightfish.lightnovelreader.api.book.LocalBookDataSourceApi
 import io.nightfish.lightnovelreader.api.book.MutableChapterContent
 import io.nightfish.lightnovelreader.api.content.builder.ContentBuilder
 import io.nightfish.lightnovelreader.api.content.builder.image
 import io.nightfish.lightnovelreader.api.content.builder.simpleText
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 suspend fun FqbookChapterContent(
     chapterId: String,
@@ -49,7 +42,11 @@ suspend fun FqbookChapterContent(
             val buffer = ArrayList<String>()
             content.forEach {
                 when (it.tag().name) {
-                    "p" -> buffer.add("\u3000\u3000" + it.text().trim())
+                    "p" -> it.wholeText().trim().split("\n").filter { it.isNotBlank() }
+                        .also { if (it.isEmpty()) return@forEach }.joinToString("\n\n") {
+                            "ㅤㅤ${it.trim()}"
+                        }.let(buffer::add)
+
                     "img" -> {
                         if (buffer.isNotEmpty()) {
                             simpleText(buffer.joinToString("\n\n"))

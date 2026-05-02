@@ -36,7 +36,11 @@ suspend fun AliceswChapterContent(
             val buffer = ArrayList<String>()
             content?.forEach {
                 when (it.tag().name) {
-                    "p" -> buffer.add("\u3000\u3000" + it.text().trim())
+                    "p" -> it.wholeText().trim().split("\n").filter { it.isNotBlank() }
+                        .also { if (it.isEmpty()) return@forEach }.joinToString("\n\n") {
+                            "ㅤㅤ${it.trim()}"
+                        }.let(buffer::add)
+
                     "img" -> {
                         if (buffer.isNotEmpty()) {
                             simpleText(buffer.joinToString("\n\n"))

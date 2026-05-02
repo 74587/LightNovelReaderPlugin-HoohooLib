@@ -69,18 +69,12 @@ dependencies {
     compileOnly(libs.lightnovelreader.api)
 
     // 插件依赖
-    implementation(libs.cxhttp)
-    implementation(libs.okhttp3.okhttp)
-    implementation(libs.okhttp3.logging.interceptor)
     implementation(libs.jsoup)
-    implementation(libs.kotlinx.serialization.cbor)
     implementation(libs.kotlinx.serialization.json)
-
     implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.status.pages)
-    implementation(libs.ktor.server.content.negotiation)
-    implementation(libs.ktor.server.call.logging)
     implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
 }
 
 val debugHostPkg = "indi.dmzz_yyhyy.lightnovelreader.debug"

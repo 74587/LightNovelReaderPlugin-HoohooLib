@@ -26,7 +26,7 @@ class FqbookCustomExploreTapPageDataSource(
                         expandedPageDataSourceId = name
                     )
                 )
-                val bookList = FqbookExploreLoader.get(pageSize = 5, parameters = order)
+                val bookList = FqbookExploreLoader.get(pageSize = 10, parameters = order)
                 emit(
                     ExploreBooksRow(
                         title = name, bookList = bookList.map {

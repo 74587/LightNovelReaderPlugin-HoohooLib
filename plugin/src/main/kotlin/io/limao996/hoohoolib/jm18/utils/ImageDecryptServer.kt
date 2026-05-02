@@ -1,20 +1,21 @@
 package io.limao996.hoohoolib.jm18.utils
 
-import cxhttp.CxHttp
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.plugins.calllogging.CallLogging
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytesWriter
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import io.ktor.utils.io.jvm.javaio.toInputStream
 import io.ktor.utils.io.jvm.javaio.toOutputStream
 import io.limao996.hoohoolib.jm18.JM18_HTTP_PORT
+import io.limao996.hoohoolib.utils.httpClient
 import java.io.BufferedInputStream
 import java.io.InputStream
 import javax.crypto.Cipher
@@ -24,8 +25,6 @@ import javax.crypto.spec.SecretKeySpec
 
 class ImageDecryptServer(port: Int) {
     private val server = embeddedServer(CIO, port = port) {
-        install(ContentNegotiation)
-        install(CallLogging)
 
         routing {
             get("/ping") {
@@ -39,9 +38,9 @@ class ImageDecryptServer(port: Int) {
                     return@get
                 }
                 try {
-                    val response = CxHttp.get(imageUrl).await()
+                    val response = httpClient.get(imageUrl)
 
-                    val originalStream = response.body?.byteStream()
+                    val originalStream = response.bodyAsChannel().toInputStream()
                     val decryptedStream =
                         decryptAESStream(BufferedInputStream(originalStream, 65535))
 

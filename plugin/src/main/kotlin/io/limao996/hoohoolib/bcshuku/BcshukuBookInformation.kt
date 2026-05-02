@@ -19,7 +19,7 @@ suspend fun BcshukuBookInformation(
     val author = soup.selectFirst(".info-chitiet span a[itemprop=author]")?.text() ?: ""
     val description =
         soup.selectFirst("[itemprop=description]")?.wholeText()?.replace("小说介绍", "")?.trim()
-            ?.split("\n")?.joinToString("\n") {
+            ?.split("\n")?.filter { it.isNotBlank() }?.joinToString("\n") {
                 "ㅤㅤ${it.trim()}"
             } ?: ""
     val coverUrl = soup.selectFirst(".book img")?.attr("src")?.let { src ->

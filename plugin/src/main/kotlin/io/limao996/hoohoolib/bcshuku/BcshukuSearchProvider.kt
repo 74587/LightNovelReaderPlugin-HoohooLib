@@ -1,9 +1,15 @@
 package io.limao996.hoohoolib.bcshuku
 
 import android.net.Uri
-import cxhttp.CxHttp
-import cxhttp.response.body
+import androidx.core.net.toUri
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
+import io.limao996.hoohoolib.alicesw.ALICESW_HOST
 import io.limao996.hoohoolib.utils.UserAgentGenerator
+import io.limao996.hoohoolib.utils.httpClient
 import io.nightfish.lightnovelreader.api.book.MutableBookInformation
 import io.nightfish.lightnovelreader.api.book.WordCount
 import io.nightfish.lightnovelreader.api.util.local
@@ -21,11 +27,8 @@ import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import java.net.URLEncoder
 import java.time.LocalDateTime
-import kotlin.time.Duration.Companion.seconds
-import androidx.core.net.toUri
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.time.format.DateTimeFormatter
+import kotlin.time.Duration.Companion.seconds
 
 object BcshukuSearchProvider : SearchProvider {
     override val searchTypes: List<SearchType> = listOf(
@@ -39,14 +42,18 @@ object BcshukuSearchProvider : SearchProvider {
         val ua = UserAgentGenerator().generateAndroidUA()
 
         val initResponse = withContext(Dispatchers.IO) {
-            val client = OkHttpClient.Builder().build()
-            val request = Request.Builder()
-                .url("$BCSHUKU_HOST/e/search/index.php?keyboard=$q&show=title,writer,byr&searchget=1")
-                .header("user-agent", ua).header("referer", BCSHUKU_HOST).get().build()
-            client.newCall(request).execute()
+            httpClient.get("$BCSHUKU_HOST/e/search/index.php?show=title,writer,byr&searchget=1") {
+                parameter("keyboard", q)
+                parameter("show", "title,writer,byr")
+                parameter("searchget", 1)
+                header(
+                    "user-agent", ua
+                )
+                header("referer", BCSHUKU_HOST)
+            }
         }
 
-        val location = initResponse.header("location") ?: initResponse.body.string()
+        val location = initResponse.headers["location"] ?: initResponse.bodyAsText()
         val match = Regex("searchid=(\\d+)").find(location)
         val searchid = match?.groupValues?.get(1)
 
@@ -55,27 +62,29 @@ object BcshukuSearchProvider : SearchProvider {
             return@flow
         }
 
-        searchAndParse(searchid, keyword, ua)
+        searchAndParse(searchid, ua)
     }.flowOn(Dispatchers.IO)
 
     private suspend fun kotlinx.coroutines.flow.FlowCollector<SearchResult>.searchAndParse(
-        searchid: String, keyword: String, ua: String
+        searchid: String, ua: String
     ) {
         var currentPage = 0
         while (currentCoroutineContext().isActive) {
             val response = withContext(Dispatchers.IO) {
-                CxHttp.get("$BCSHUKU_HOST/e/search/result/index.php?page=$currentPage&searchid=$searchid") {
+                httpClient.get("$BCSHUKU_HOST/e/search/result/index.php") {
+                    parameter("page", currentPage)
+                    parameter("searchid", searchid)
                     header("user-agent", ua)
                     header("referer", BCSHUKU_HOST)
-                }.await().body?.string()
+                }
             }
 
-            if (response == null) {
+            if (response.status != HttpStatusCode.OK) {
                 if (currentPage == 0) emit(SearchResult.Error("网页请求失败！"))
                 break
             }
 
-            val soup = Jsoup.parse(response)
+            val soup = Jsoup.parse(response.bodyAsText())
             val items = soup.select(".one-row .col-md-3.col-sm-6.col-xs-6.home-truyendecu")
 
             if (items.isEmpty() && currentPage == 0) {
