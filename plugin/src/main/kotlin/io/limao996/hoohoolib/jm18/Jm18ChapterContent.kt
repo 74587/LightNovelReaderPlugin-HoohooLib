@@ -95,7 +95,6 @@ suspend fun Jm18ComicChapterContent(
 
     val title = flatChapter[currentIndex].title
     val content = soup.selectFirst("main section")?.children() ?: return ChapterContent.empty()
-
     return MutableChapterContent(
         id = chapterId, title = title, content = ContentBuilder().apply {
             val buffer = ArrayList<String>()

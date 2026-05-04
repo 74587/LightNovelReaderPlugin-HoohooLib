@@ -1,20 +1,20 @@
 package io.limao996.hoohoolib.jm18.utils
 
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytesWriter
-import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import io.ktor.utils.io.jvm.javaio.toOutputStream
 import io.limao996.hoohoolib.jm18.JM18_HTTP_PORT
+import io.limao996.hoohoolib.utils.debugLog
 import io.limao996.hoohoolib.utils.httpClient
 import java.io.BufferedInputStream
 import java.io.InputStream
@@ -27,6 +27,9 @@ class ImageDecryptServer(port: Int) {
     private val server = embeddedServer(CIO, port = port) {
 
         routing {
+            get("/ping") {
+                call.respond(HttpStatusCode.OK, "OK")
+            }
             get("/image-decrypt") {
                 val imageUrl = call.request.queryParameters["imageUrl"]
                 if (imageUrl == null) {
@@ -34,11 +37,17 @@ class ImageDecryptServer(port: Int) {
                     return@get
                 }
                 try {
-                    val response = httpClient.get(imageUrl)
+                    val response = httpClient.get(imageUrl) {
+                        timeout {
+                            requestTimeoutMillis = 120_000L
+                        }
+                    }
+
+                    debugLog("ImageDecryptServer Visit URL.", "Status code: ${response.status}")
 
                     val originalStream = response.bodyAsChannel().toInputStream()
                     val decryptedStream =
-                        decryptAESStream(BufferedInputStream(originalStream, 65535))
+                        decryptAESStream(BufferedInputStream(originalStream, 128 * 1024))
 
                     call.respondBytesWriter(
                         contentType = ContentType.Image.JPEG, status = HttpStatusCode.OK

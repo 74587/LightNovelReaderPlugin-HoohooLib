@@ -66,17 +66,6 @@ class BcshukuWebDataSource(
         timeout = 2 * 60 * 60 * 1000
     )
 
-    private inline fun <reified T : CanBeEmpty> ifCache(id: String, block: () -> T): T {
-        val cacheData = cache.getCache<T>(id.hashCode())
-        if (cacheData == null) {
-            val data = block.invoke()
-            if (data.isEmpty()) return data
-            cache.cache(id.hashCode(), data)
-            return data
-        }
-        return cacheData
-    }
-
     override fun onLoad() {
 
         coroutineScope.launch {
@@ -91,12 +80,11 @@ class BcshukuWebDataSource(
     override val searchProvider = BcshukuSearchProvider(context)
     override val explorePageProvider = BcshukuExplorePageProvider
 
-    override suspend fun getBookInformation(id: String) = ifCache("$tag:info:$id") { BcshukuBookInformation(id) }
+    override suspend fun getBookInformation(id: String) = BcshukuBookInformation(id)
 
-    override suspend fun getBookVolumes(id: String) = ifCache("$tag:volumes:$id") { BcshukuBookVolumes(id) }
+    override suspend fun getBookVolumes(id: String) = BcshukuBookVolumes(id)
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
-        ifCache("$tag:content:$bookId:$chapterId") {
-            BcshukuChapterContent(chapterId, bookId, localBookDataSourceApi)
-        }
+        BcshukuChapterContent(chapterId, bookId, localBookDataSourceApi)
+
 }
