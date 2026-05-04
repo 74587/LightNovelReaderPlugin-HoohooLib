@@ -66,22 +66,9 @@ class AliceswWebDataSource(
         }
     }
 
-    // 初始化缓存机制
     override val cache = Cache(
         timeout = 2 * 60 * 60 * 1000
     )
-
-    private inline fun <reified T : CanBeEmpty> ifCache(id: String, block: () -> T): T {
-        val cacheData = cache.getCache<T>(id.hashCode())
-        if (cacheData == null) {
-            val data = block.invoke()
-            if (data.isEmpty()) return data
-            cache.cache(id.hashCode(), data)
-            return data
-        }
-        return cacheData
-    }
-
 
     // 初始化
     override fun onLoad() {
@@ -100,15 +87,11 @@ class AliceswWebDataSource(
 
     override val searchProvider = AliceswSearchProvider
 
-    override suspend fun getBookInformation(id: String) =
-        ifCache("$tag:info:$id") { AliceswBookInformation(id) }
+    override suspend fun getBookInformation(id: String) = AliceswBookInformation(id)
 
-    override suspend fun getBookVolumes(id: String) =
-        ifCache("$tag:volumes:$id") { AliceswBookVolumes(id) }
+    override suspend fun getBookVolumes(id: String) = AliceswBookVolumes(id)
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
-        ifCache("$tag:content:$bookId:$chapterId") {
-            AliceswChapterContent(context, chapterId, bookId, localBookDataSourceApi)
-        }
+        AliceswChapterContent(context, chapterId, bookId, localBookDataSourceApi)
 
 }

@@ -21,7 +21,6 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import kotlin.coroutines.resume
 
-val httpClient = HttpClient(OkHttp)
 
 // 常量提取
 private const val MAX_RETRY_TIMES = 3
@@ -29,6 +28,8 @@ private const val INITIAL_RETRY_DELAY_MS = 2500L
 private const val BROWSER_TIMEOUT_MS = 30000L
 private const val MAX_CONCURRENT_REQUESTS = 3
 private const val WEBVIEW_IDLE_TIMEOUT_MS = 5000L
+
+val httpClient = HttpClient(OkHttp)
 
 private val requestLimiter = Semaphore(MAX_CONCURRENT_REQUESTS)
 
@@ -87,7 +88,7 @@ suspend fun browserGet(context: Context, url: String, useWindowsUA: Boolean = fa
 
     requestLimiter.withPermit {
         executeWithRetry {
-            executeBrowserGet(context, url, useWindowsUA)
+            withContext(Dispatchers.Main) { executeBrowserGet(context, url, useWindowsUA) }
         }?.let {
             withContext(Dispatchers.IO) { Jsoup.parse(it) }
         }
@@ -102,7 +103,7 @@ private fun acquireWebView(context: Context): WebView {
             stopLoading()
         }
         cleanupExpiredWebViews()
-        infoLog("WebView pool: 复用实例", "poolSize=", webViewPool.size)
+        debugLog("WebView pool: 复用实例", "poolSize=", webViewPool.size)
         return pooled.webView
     }
     val webView = WebView(context.applicationContext).apply {
@@ -113,7 +114,7 @@ private fun acquireWebView(context: Context): WebView {
         webViewClient = BrowserWebViewClient()
     }
     webViewPool.add(PooledWebView(webView, inUse = true))
-    infoLog("WebView pool: 新建实例", "poolSize=", webViewPool.size)
+    debugLog("WebView pool: 新建实例", "poolSize=", webViewPool.size)
     return webView
 }
 
@@ -126,7 +127,7 @@ private fun releaseWebView(webView: WebView) {
     webViewPool.find { it.webView == webView }?.let {
         it.inUse = false
         it.idleSince = System.currentTimeMillis()
-        infoLog("WebView pool: 归还实例", "poolSize=", webViewPool.size)
+        debugLog("WebView pool: 归还实例", "poolSize=", webViewPool.size)
     }
 }
 
@@ -136,7 +137,7 @@ private fun cleanupExpiredWebViews() {
     while (iterator.hasNext()) {
         val pooled = iterator.next()
         if (!pooled.inUse && pooled.idleSince > 0 && (now - pooled.idleSince) > WEBVIEW_IDLE_TIMEOUT_MS) {
-            infoLog("WebView pool: 销毁过期实例", "idle=", now - pooled.idleSince, "ms")
+            debugLog("WebView pool: 销毁过期实例", "idle=", now - pooled.idleSince, "ms")
             pooled.webView.destroy()
             iterator.remove()
         }
@@ -148,26 +149,22 @@ private fun cleanupExpiredWebViews() {
  */
 private suspend fun executeBrowserGet(
     context: Context, url: String, useWindowsUA: Boolean
-): String? = withContext(Dispatchers.Main) {
-    withTimeoutOrNull(BROWSER_TIMEOUT_MS) {
-        val webView = acquireWebView(context).apply {
-            settings.userAgentString = userAgentGenerator.generate(
-                if (useWindowsUA) UserAgentGenerator.Platform.Windows
-                else UserAgentGenerator.Platform.Android
-            )
-        }
-        suspendCancellableCoroutine { continuation ->
-            webView.addJavascriptInterface(JavaScriptBridge {
-                continuation.resume(it)
-            }, "Bridge")
-
-            webView.loadUrl(url)
-
-            continuation.invokeOnCancellation { releaseWebView(webView) }
-
-        }.also { releaseWebView(webView) }
+): String? = withTimeoutOrNull(BROWSER_TIMEOUT_MS) {
+    val webView = acquireWebView(context).apply {
+        settings.userAgentString = userAgentGenerator.generate(
+            if (useWindowsUA) UserAgentGenerator.Platform.Windows
+            else UserAgentGenerator.Platform.Android
+        )
     }
+    suspendCancellableCoroutine { continuation ->
+        webView.addJavascriptInterface(JavaScriptBridge {
+            continuation.resume(it)
+        }, "Bridge")
+
+        webView.loadUrl(url)
+    }.also { releaseWebView(webView) }
 }
+
 
 /**
  * JavaScript 桥接类

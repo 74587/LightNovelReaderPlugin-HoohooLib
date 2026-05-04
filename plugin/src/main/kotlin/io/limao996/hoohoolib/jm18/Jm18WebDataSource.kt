@@ -4,13 +4,13 @@ import android.content.Context
 import android.net.Uri
 import io.ktor.client.request.get
 import io.ktor.client.request.header
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.limao996.hoohoolib.jm18.explore.Jm18ExplorePageProvider
 import io.limao996.hoohoolib.jm18.utils.ImageDecryptServer
 import io.limao996.hoohoolib.utils.UserAgentGenerator
+import io.limao996.hoohoolib.utils.debugLog
 import io.limao996.hoohoolib.utils.httpClient
-import io.limao996.hoohoolib.utils.infoLog
+import io.limao996.hoohoolib.utils.warnLog
 import io.nightfish.lightnovelreader.api.book.BookInformation
 import io.nightfish.lightnovelreader.api.book.BookRepositoryApi
 import io.nightfish.lightnovelreader.api.book.BookVolumes
@@ -26,9 +26,6 @@ import io.nightfish.lightnovelreader.api.util.Cache
 import io.nightfish.lightnovelreader.api.web.WebBookDataSource
 import io.nightfish.lightnovelreader.api.web.WebBookDataSourceManagerApi
 import io.nightfish.lightnovelreader.api.web.WebDataSource
-import io.nightfish.lightnovelreader.api.web.explore.ExploreExpandedPageDataSource
-import io.nightfish.lightnovelreader.api.web.explore.ExplorePageProvider
-import io.nightfish.lightnovelreader.api.web.explore.ExploreTapPageDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -40,7 +37,7 @@ import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 const val JM18_HOST = "https://18mh.net"
-const val JM18_HTTP_PORT = 37089
+var JM18_HTTP_PORT = 37082
 
 
 @Suppress("unused")
@@ -80,18 +77,6 @@ class Jm18WebDataSource(
         timeout = 2 * 60 * 60 * 1000
     )
 
-    private inline fun <reified T : CanBeEmpty> ifCache(id: String, block: () -> T): T {
-        val cacheData = cache.getCache<T>(id.hashCode())
-        if (cacheData == null) {
-            val data = block.invoke()
-            if (data.isEmpty()) return data
-            cache.cache(id.hashCode(), data)
-            return data
-        }
-        return cacheData
-    }
-
-
     override fun onLoad() {
 
         coroutineScope.launch {
@@ -103,7 +88,25 @@ class Jm18WebDataSource(
         }
 
         coroutineScope.launch {
-            ImageDecryptServer(JM18_HTTP_PORT).start()
+            while (true) {
+                try {
+                    debugLog("ImageDecryptServer Start.", "Port: $JM18_HTTP_PORT")
+                    ImageDecryptServer(JM18_HTTP_PORT).start()
+                } catch (e: Exception) {
+                    debugLog(
+                        "ImageDecryptServer Start failed.", "The port is occupied!", e
+                    )
+                    JM18_HTTP_PORT = Random.nextInt(10000, 65535)
+                    continue
+                }
+                val status = httpClient.get("http://127.0.0.1:$JM18_HTTP_PORT/ping").status
+                debugLog("ImageDecryptServer Ping.", "Status code: $status")
+                if (status == HttpStatusCode.OK) {
+                    break
+                }
+                warnLog("ImageDecryptServer Ping failed.", "Status code: $status")
+                JM18_HTTP_PORT = Random.nextInt(10000, 65535)
+            }
         }
     }
 
@@ -119,17 +122,14 @@ class Jm18WebDataSource(
     override val searchProvider = Jm18SearchProvider
     override val explorePageProvider = Jm18ExplorePageProvider
 
-    override suspend fun getBookInformation(id: String): BookInformation =
-        ifCache("$tag:info:$id") {
-            Jm18BookInformation(id)
-        }
+    override suspend fun getBookInformation(id: String): BookInformation = Jm18BookInformation(id)
 
-    override suspend fun getBookVolumes(id: String): BookVolumes = ifCache("$tag:volumes:$id") {
-        Jm18BookVolumes(id)
-    }
+    override suspend fun getBookVolumes(id: String): BookVolumes = Jm18BookVolumes(id)
+
 
     override suspend fun getChapterContent(chapterId: String, bookId: String): ChapterContent =
-        ifCache("$tag:content:$bookId:$chapterId") {
-            Jm18ChapterContent(chapterId, bookId, localBookDataSourceApi)
-        }
+        Jm18ChapterContent(
+            chapterId, bookId, localBookDataSourceApi
+        )
+
 }

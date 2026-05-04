@@ -66,17 +66,6 @@ class FqbookWebDataSource(
         timeout = 2 * 60 * 60 * 1000
     )
 
-    private inline fun <reified T : CanBeEmpty> ifCache(id: String, block: () -> T): T {
-        val cacheData = cache.getCache<T>(id.hashCode())
-        if (cacheData == null) {
-            val data = block.invoke()
-            if (data.isEmpty()) return data
-            cache.cache(id.hashCode(), data)
-            return data
-        }
-        return cacheData
-    }
-
     override fun onLoad() {
         coroutineScope.launch {
             while (currentCoroutineContext().isActive) {
@@ -90,16 +79,13 @@ class FqbookWebDataSource(
     override val searchProvider = FqbookSearchProvider
     override val explorePageProvider = FqbookExplorePageProvider
 
-    override suspend fun getBookInformation(id: String) =
-        ifCache("$tag:info:$id") { FqbookBookInformation(id) }
+    override suspend fun getBookInformation(id: String) = FqbookBookInformation(id)
 
-    override suspend fun getBookVolumes(id: String) =
-        ifCache("$tag:volumes:$id") { FqbookBookVolumes(id) }
+    override suspend fun getBookVolumes(id: String) = FqbookBookVolumes(id)
 
     override suspend fun getChapterContent(chapterId: String, bookId: String) =
-        ifCache("$tag:content:$bookId:$chapterId") {
-            FqbookChapterContent(
-                chapterId, bookId, localBookDataSourceApi
-            )
-        }
+        FqbookChapterContent(
+            chapterId, bookId, localBookDataSourceApi
+        )
+
 }

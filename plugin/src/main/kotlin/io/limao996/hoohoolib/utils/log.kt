@@ -2,7 +2,7 @@ package io.limao996.hoohoolib.utils
 
 import android.util.Log
 
-private fun makeLogMsg(vararg args: Any?) = args.joinToString("    ")
+private fun makeLogMsg(vararg args: Any?) = args.joinToString("\t")
 
 fun verboseLog(vararg args: Any?) = Log.v("PluginLog", makeLogMsg(*args))
 fun debugLog(vararg args: Any?) = Log.d("PluginLog", makeLogMsg(*args))
